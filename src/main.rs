@@ -2,11 +2,13 @@ use axum::serve;
 use clap::Parser;
 use clap::Subcommand;
 use dotenvy::dotenv;
+use sea_orm::ConnectOptions;
 use sea_orm::Database;
 use sea_orm::DatabaseConnection;
 use tokio::net::TcpListener;
 use tokio::runtime;
 use tokio::spawn;
+use tracing::log::LevelFilter;
 
 use crate::web::State;
 use crate::web::router;
@@ -34,8 +36,10 @@ struct Cli {
 
 #[derive(Debug, Clone, Default, Subcommand)]
 enum Command {
+	/// Start web server
 	#[default]
 	Server,
+	/// Load random data into the database
 	Load(load::Load),
 }
 async fn async_main() -> anyhow::Result<()> {
@@ -43,7 +47,9 @@ async fn async_main() -> anyhow::Result<()> {
 		command,
 		database_url,
 	} = Cli::parse();
-	let db = Database::connect(&database_url).await?;
+	let mut opts = ConnectOptions::new(&database_url);
+	opts.sqlx_logging_level(LevelFilter::Debug);
+	let db = Database::connect(opts).await?;
 
 	let command = command.unwrap_or_default();
 
