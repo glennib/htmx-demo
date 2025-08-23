@@ -1,0 +1,16 @@
+services:
+  db:
+    image: "docker.io/library/postgres:18beta3"
+    volumes:
+      - "postgres_db:/data"
+    environment:
+      PGDATA: "/data/pgdata"
+      POSTGRES_PASSWORD: "test-password" # only on first run
+      POSTGRES_USER: "test-user"
+      POSTGRES_DB: "test-database"
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+
+volumes:
+  postgres_db:
