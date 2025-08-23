@@ -3,4 +3,4 @@
 #![allow(unused_imports)]
 
 pub use super::note::Entity as Note;
-pub use super::user::Entity as User;
+pub use super::users::Entity as Users;

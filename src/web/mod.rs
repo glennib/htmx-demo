@@ -15,16 +15,18 @@ use sea_orm::DatabaseConnection;
 use sea_orm::EntityTrait;
 use sea_orm::IntoActiveModel;
 use sea_orm::ModelTrait;
+use sea_orm::Order;
 use sea_orm::QueryOrder;
 use sea_orm::Set;
+use sea_orm::sea_query::NullOrdering;
 use serde::Deserialize;
 use tower_http::services::ServeDir;
 use uuid::Uuid;
 
 use crate::entity::note;
 use crate::entity::note::Entity as Note;
-use crate::entity::user;
-use crate::entity::user::Entity as User;
+use crate::entity::users as user;
+use crate::entity::users::Entity as User;
 
 #[derive(Debug, Clone)]
 pub struct State {
@@ -61,14 +63,13 @@ pub fn router() -> Router<State> {
 
 async fn h_users(extract::State(State { db }): extract::State<State>) -> Markup {
 	let users = User::find()
-		.order_by_asc(user::Column::UserId)
-		.find_with_related(Note)
+		.order_by_asc(user::Column::Name)
 		.all(&db)
 		.await
 		.unwrap();
 	base(
 		"Users -- TODO app",
-		&["htmx.js", "reload.js"],
+		&["htmx.js" /*"reload.js"*/],
 		&html!(
 			table {
 				thead {
@@ -84,7 +85,7 @@ async fn h_users(extract::State(State { db }): extract::State<State>) -> Markup 
 					}
 				}
 				tbody {
-					@for (user, notes) in users {
+					@for user in users {
 						tr {
 							td {
 								pre {
@@ -96,7 +97,7 @@ async fn h_users(extract::State(State { db }): extract::State<State>) -> Markup 
 							}
 							td {
 								a href={"/users/"(user.user_id)"/notes"} {
-									"View notes (" (notes.len()) ")"
+									"View notes"
 								}
 							}
 						}
@@ -113,18 +114,21 @@ async fn h_notes(
 ) -> Markup {
 	let (user, notes) = User::find_by_id(user_id)
 		.find_with_related(Note)
-		.order_by_asc(note::Column::NoteId)
+		.order_by_with_nulls(note::Column::UpdatedAt, Order::Desc, NullOrdering::Last)
+		.order_by_desc(note::Column::CreatedAt)
 		.all(&db)
 		.await
 		.unwrap()
 		.pop()
 		.unwrap();
+	let n_notes = notes.len();
 	let user::Model { user_id: _, name } = user;
 	base(
 		&format!("{name} -- TODO app"),
 		&["htmx.js"],
 		&html!(
 			h1 { "Notes for " (name) }
+			p { "Total notes: " (n_notes) }
 			table {
 				thead {
 					tr {
@@ -297,6 +301,7 @@ async fn h_note_toggle(
 	let is_done = note.is_done;
 	let mut note = note.into_active_model();
 	note.is_done = Set(!is_done);
+	note.updated_at = Set(Some(Utc::now().fixed_offset()));
 	let note = note.update(&db).await.unwrap();
 	note_row_view(note)
 }

@@ -49,7 +49,7 @@ impl PrimaryKeyTrait for PrimaryKey {
 
 #[derive(Copy, Clone, Debug, EnumIter)]
 pub enum Relation {
-	User,
+	Users,
 }
 
 impl ColumnTrait for Column {
@@ -70,17 +70,17 @@ impl ColumnTrait for Column {
 impl RelationTrait for Relation {
 	fn def(&self) -> RelationDef {
 		match self {
-			Self::User => Entity::belongs_to(super::user::Entity)
+			Self::Users => Entity::belongs_to(super::users::Entity)
 				.from(Column::UserId)
-				.to(super::user::Column::UserId)
+				.to(super::users::Column::UserId)
 				.into(),
 		}
 	}
 }
 
-impl Related<super::user::Entity> for Entity {
+impl Related<super::users::Entity> for Entity {
 	fn to() -> RelationDef {
-		Relation::User.def()
+		Relation::Users.def()
 	}
 }
 
