@@ -33,6 +33,9 @@ use crate::entity::note::Entity as Note;
 use crate::entity::users as user;
 use crate::entity::users::Entity as User;
 
+#[cfg(test)]
+mod test;
+
 #[derive(Debug, Clone)]
 pub struct State {
 	pub db: DatabaseConnection,
