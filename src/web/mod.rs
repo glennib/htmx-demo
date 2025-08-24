@@ -10,13 +10,18 @@ use chrono::Utc;
 use maud::DOCTYPE;
 use maud::Markup;
 use maud::html;
+use num_format::Locale;
+use num_format::ToFormattedString;
 use sea_orm::ActiveModelTrait;
+use sea_orm::ColumnTrait;
 use sea_orm::DatabaseConnection;
 use sea_orm::EntityTrait;
+use sea_orm::FromQueryResult;
 use sea_orm::IntoActiveModel;
 use sea_orm::ModelTrait;
 use sea_orm::Order;
 use sea_orm::QueryOrder;
+use sea_orm::QuerySelect;
 use sea_orm::Set;
 use sea_orm::sea_query::NullOrdering;
 use serde::Deserialize;
@@ -62,15 +67,37 @@ pub fn router() -> Router<State> {
 }
 
 async fn h_users(extract::State(State { db }): extract::State<State>) -> Markup {
+	#[derive(FromQueryResult)]
+	struct Row {
+		user_id: Uuid,
+		name: String,
+		notes_count: i64,
+	}
+
 	let users = User::find()
-		.order_by_asc(user::Column::Name)
+		.column_as(note::Column::NoteId.count(), "notes_count")
+		.left_join(Note)
+		.group_by(user::Column::Name)
+		.group_by(user::Column::UserId)
+		.order_by_desc(note::Column::NoteId.count())
+		.into_model::<Row>()
 		.all(&db)
 		.await
 		.unwrap();
+
+	let total_notes = users.iter().map(|user| user.notes_count).sum::<i64>();
+
 	base(
 		"Users -- TODO app",
-		&["htmx.js" /*"reload.js"*/],
+		&["htmx.js", "reload.js"],
 		&html!(
+			h1 {
+				"Users"
+			}
+			p {
+				"Total notes: "(total_notes.to_formatted_string(&Locale::en))"."
+				"Total users: "(users.len().to_formatted_string(&Locale::en))"."
+			}
 			table {
 				thead {
 					tr {
@@ -97,7 +124,7 @@ async fn h_users(extract::State(State { db }): extract::State<State>) -> Markup 
 							}
 							td {
 								a href={"/users/"(user.user_id)"/notes"} {
-									"View notes"
+									"View notes ("(user.notes_count.to_formatted_string(&Locale::en))")"
 								}
 							}
 						}
